@@ -76,7 +76,7 @@ def main():
             st.rerun()
         st.stop()
 
-    st.title("新艺文社数字化文学平台 - 第二届盲审工作台")
+    st.title("新艺文社数字化文学平台 - 第二届初审工作台")
 
     # --- 获取数据 ---
     r2_client, supabase_client = init_connections()
