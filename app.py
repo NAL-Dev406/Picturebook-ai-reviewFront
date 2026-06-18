@@ -9,7 +9,7 @@ def main():
     )
 
     st.title("📚 新艺文社数字化文学平台")
-    st.subheader("第二届儿童文学与图画书盲审系统")
+    st.subheader("第二届儿童文学与图画书初审系统")
     
     st.divider()
 
