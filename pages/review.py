@@ -53,7 +53,7 @@ def get_secure_url(r2_key):
     if not r2_key: return None
     return r2_client.generate_presigned_url(
         ClientMethod='get_object',
-        Params={'Bucket': st.secrets['R2_BUCKET_NAME'], 'Key': r2_key},
+        Params={'Bucket': os.getenv['R2_BUCKET_NAME'], 'Key': r2_key},
         ExpiresIn=900
     )
 
