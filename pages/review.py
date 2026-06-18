@@ -124,7 +124,7 @@ def main():
                 ExpiresIn=900
             )
             # 采用最新的 width=None 写法，自适应宽度铺满列
-            st.image(secure_url, caption=f"原稿加载完毕: {asset.get('blind_review_code')}", width=None)
+            st.image(secure_url, caption=f"原稿加载完毕: {asset.get('blind_review_code')}", width="stretch")
         except Exception as e:
             st.error(f"无法生成加密预览链接，请联系系统管理员。错误详情: {e}")
 
