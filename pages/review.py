@@ -26,9 +26,10 @@ def check_password():
 if not check_password():
     st.stop()
 
-# ================= 初始化云端连接 =================
+# ================= 初始化云端连接 (pages/review.py) =================
 @st.cache_resource
 def init_connections():
+    # 1. 连接 R2 (保持不变)
     r2 = boto3.client(
         "s3",
         endpoint_url=f"https://{st.secrets['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
@@ -36,8 +37,13 @@ def init_connections():
         aws_secret_access_key=st.secrets['R2_SECRET_ACCESS_KEY'],
         config=Config(signature_version="s3v4")
     )
-    supabase = create_client(st.secrets['SUPABASE_URL'], st.secrets['SUPABASE_KEY'])
-    return r2, supabase
+    
+    # 2. 精确连接【新】数据库
+    supabase_new = create_client(
+        st.secrets['NEW_SUPABASE_URL'], 
+        st.secrets['NEW_SUPABASE_KEY']
+    )
+    return r2, supabase_new
 
 r2_client, supabase_client = init_connections()
 
