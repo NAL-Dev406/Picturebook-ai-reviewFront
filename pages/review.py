@@ -88,14 +88,18 @@ def main():
     # 直接使用预处理好的 key
     r2_key = asset.get("parsed_r2_key")
     
-    # 获取 R2 链接
+    # 获取 R2 链接并渲染
     r2, _ = init_connections()
-    secure_url = r2.generate_presigned_url(
-        'get_object',
-        Params={'Bucket': os.getenv('R2_BUCKET_NAME'), 'Key': r2_key},
-        ExpiresIn=900
-    )
-    st.image(secure_url, use_column_width=True)
+    try:
+        secure_url = r2.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': os.getenv('R2_BUCKET_NAME'), 'Key': r2_key},
+            ExpiresIn=900
+        )
+        # 使用更现代的 width 参数写法
+        st.image(secure_url, caption="作品原稿", width=None) 
+    except Exception as e:
+        st.error(f"无法生成预览链接: {e}")
 
 if __name__ == "__main__":
     main()
