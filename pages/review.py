@@ -30,21 +30,21 @@ if not check_password():
 # ================= 初始化云端连接 (pages/review.py) =================
 @st.cache_resource
 def init_connections():
-    # 1. 连接 R2 (保持不变)
+    # 使用 os.getenv 直接读取 Render 环境变量，彻底绕过 st.secrets
     r2 = boto3.client(
         "s3",
-        endpoint_url=f"https://{st.secrets['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
-        aws_access_key_id=st.secrets['R2_ACCESS_KEY_ID'],
-        aws_secret_access_key=st.secrets['R2_SECRET_ACCESS_KEY'],
+        endpoint_url=f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+        aws_access_key_id=os.getenv('R2_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('R2_SECRET_ACCESS_KEY'),
         config=Config(signature_version="s3v4")
     )
     
-    # 2. 精确连接【新】数据库
-    supabase_new = create_client(
-        st.secrets['NEW_SUPABASE_URL'], 
-        st.secrets['NEW_SUPABASE_KEY']
+    # 同样使用 os.getenv 读取数据库配置
+    supabase = create_client(
+        os.getenv('NEW_SUPABASE_URL'), 
+        os.getenv('NEW_SUPABASE_KEY')
     )
-    return r2, supabase_new
+    return r2, supabase
 
 r2_client, supabase_client = init_connections()
 
