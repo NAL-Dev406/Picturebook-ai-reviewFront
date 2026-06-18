@@ -61,7 +61,7 @@ def get_secure_url(r2_key):
 st.title("新艺文社数字化文学平台 - 第二届盲审工作台")
 
 # 1. 拉取所有稿件 (真实生产环境可以加上 .eq("review_status", "pending"))
-response = supabase_client.table("contest_artworks").select("id").execute()
+response = supabase_client.table("contest_artworks").select("*").execute()
 
 # --- 诊断日志 ---
 st.write(f"DEBUG: 错误信息: {response.data}")
@@ -71,9 +71,23 @@ if not response.data and response.error:
 st.write(f"DEBUG: 数据库连接 URL: {os.getenv('NEW_SUPABASE_URL')}")
 st.write(f"DEBUG: 获取到的数据行数: {len(response.data) if response.data else 0}")
 if response.data:
-    st.write("DEBUG: 数据样例:", response.data[0])
+    # 打印第一条数据的所有字段名，观察是否有缺失
+    st.write("DEBUG: 字段列表 -> ", list(response.data[0].keys()))
+    
+    options = {}
+    for item in response.data:
+        # 使用 item.get 确保即使字段为空也不会崩溃
+        b_code = item.get("blind_review_code")
+        cat = item.get("category")
+        
+        # ⚠️ 关键检查：如果有数据缺失，我们在界面上跳过，而不是报错
+        if b_code and cat:
+            options[f"{b_code} ({cat})"] = item['id']
+            
+    if not options:
+        st.warning("数据存在但字段解析失败，请检查上面的 DEBUG 字段列表。")
 else:
-    st.warning("DEBUG: 数据库返回为空，请检查表名 'contest_artworks' 或数据是否存入了该库。")
+    st.error("查询结果集为空！")
 # --------------
 
 if not response.data:
