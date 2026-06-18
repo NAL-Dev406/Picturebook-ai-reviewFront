@@ -22,7 +22,7 @@ def main():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         # 使用 Streamlit 原生的页面跳转功能 (需 Streamlit 1.31.0+)
-        if st.button("🚀 进入盲审工作台", type="primary", use_container_width=True):
+        if st.button("🚀 进入初审工作台", type="primary", use_container_width=True):
             try:
                 st.switch_page("pages/review.py")
             except Exception as e:
