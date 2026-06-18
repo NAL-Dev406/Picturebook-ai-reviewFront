@@ -32,8 +32,21 @@ def get_secure_url(r2_key, r2_client):
         st.error(f"链接生成失败: {e}")
         return None
 
-# --- 3. 高效数据加载与多图清洗 ---
-# 缩短了缓存时间，防止你刚传完图但页面依然显示旧的无图列表
+# --- 3. 绝对严格的路径特征校验 ---
+def is_valid_image_key(key):
+    """防弹级验证：检查是否为真实的 R2 图片路径"""
+    if not key or not isinstance(key, str):
+        return False
+    
+    key = key.strip().lower() # 统一转小写进行特征比对
+    valid_extensions = ('.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff')
+    
+    # 必须以图片后缀结尾，并且必须包含我们设定的存储桶目录特征
+    if key.endswith(valid_extensions) and ("edition_2/" in key or "secure_raw/" in key):
+        return True
+    return False
+
+# --- 4. 高效数据加载与多图清洗 ---
 @st.cache_data(ttl=60) 
 def load_valid_data(_client):
     valid_data = []
@@ -52,19 +65,19 @@ def load_valid_data(_client):
             assets = item.get("assets_data")
             valid_image_keys = []
             
-            # 解析最新的数据结构 (无论是单字典，还是多页的列表)
+            # 无论数据库存的是什么乱七八糟的格式，统一使用严格特征校验
             if isinstance(assets, list):
                 for page in assets:
-                    if isinstance(page, dict) and page.get("r2_raw_key"):
-                        key = str(page.get("r2_raw_key")).strip()
-                        if key:  # 确保不为空
-                            valid_image_keys.append(key)
+                    if isinstance(page, dict):
+                        raw_key = page.get("r2_raw_key")
+                        if is_valid_image_key(raw_key):
+                            valid_image_keys.append(str(raw_key).strip())
             elif isinstance(assets, dict):
-                r2_key = assets.get("r2_raw_key")
-                if r2_key and str(r2_key).strip():
-                    valid_image_keys.append(str(r2_key).strip())
+                raw_key = assets.get("r2_raw_key")
+                if is_valid_image_key(raw_key):
+                    valid_image_keys.append(str(raw_key).strip())
             
-            # 绝对过滤：只有包含至少一张有效图片路径的作品，才会被加入最终显示列表
+            # 只有通过了极严苛校验，确实拥有真实图片路径的作品，才加入展示列表
             if valid_image_keys:
                 item['parsed_r2_keys'] = valid_image_keys  
                 valid_data.append(item)
@@ -75,7 +88,7 @@ def load_valid_data(_client):
         
     return valid_data, total_fetched
 
-# --- 4. 页面主逻辑 ---
+# --- 5. 页面主逻辑 ---
 def main():
     st.set_page_config(page_title="NAL 评审工作台", layout="wide")
     
@@ -96,16 +109,16 @@ def main():
     r2_client, supabase_client = init_connections()
     valid_data, total_fetched = load_valid_data(supabase_client)
     
-    # 手动刷新缓存的按钮（如果看到没有图片的作品，可点此强制同步）
+    # 侧边栏统计与强制清理
     with st.sidebar:
         st.success(f"系统共检索: **{total_fetched}** 条记录")
         st.info(f"含图片可阅览: **{len(valid_data)}** 部作品")
-        if st.button("🔄 强制刷新最新数据"):
-            load_valid_data.clear()
+        if st.button("🔄 强制清理缓存并刷新"):
+            st.cache_data.clear() # 彻底核弹级清理缓存
             st.rerun()
     
     if not valid_data:
-        st.warning("当前数据库中暂无包含图片的作品。")
+        st.warning("当前数据库中暂无符合要求的真实图片作品，请确保上次运行上传脚本时已成功写入 Supabase。")
         st.stop()
     
     # --- UI 交互：级联选择 ---
@@ -142,12 +155,12 @@ def main():
         
         st.subheader(f"🎨 视觉原稿区: {selected_label}")
         
-        # 增加动态缩放滑块，默认宽度 700px 适合大部分竖排绘本
+        # 动态缩放滑块，默认宽度 700px 适合竖排绘本
         img_width = st.slider("🔍 调整图片显示比例 (拖动缩放)", min_value=300, max_value=2000, value=700, step=50)
         
         st.info(f"💡 提示：该作品共包含 {len(image_keys)} 页视觉稿。图片采用端到端加密链接，15分钟后自动失效。")
         
-        # 居中显示图片的 CSS 技巧
+        # 居中对齐排版
         col_img1, col_img2, col_img3 = st.columns([1, 6, 1])
         
         with col_img2:
@@ -155,7 +168,6 @@ def main():
             for idx, key in enumerate(image_keys):
                 secure_url = get_secure_url(key, r2_client)
                 if secure_url:
-                    # 弃用 stretch，改用滑块驱动的动态 width
                     st.image(secure_url, caption=f"第 {idx + 1} 页", width=img_width)
                     st.markdown("<br>", unsafe_allow_html=True)
 
