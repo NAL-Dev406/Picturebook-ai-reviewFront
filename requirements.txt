@@ -2,3 +2,6 @@ streamlit
 requests
 Pillow
 supabase
+boto3
+botocore
+python-dotenv
