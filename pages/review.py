@@ -1,5 +1,6 @@
 import streamlit as st
 import boto3
+import os
 from botocore.config import Config
 from supabase import create_client
 
@@ -8,7 +9,7 @@ st.set_page_config(page_title="NAL盲审工作台", layout="wide")
 # ================= 安全验证拦截 =================
 def check_password():
     def password_entered():
-        if st.session_state["password"] == st.secrets["REVIEWER_PASSWORD"]:
+        if st.session_state["password"] == os.getenv("REVIEWER_PASSWORD"):
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:
