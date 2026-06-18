@@ -26,7 +26,7 @@ def get_secure_url(r2_key, r2_client):
         return r2_client.generate_presigned_url(
             'get_object',
             Params={'Bucket': os.getenv('R2_BUCKET_NAME'), 'Key': r2_key},
-            ExpiresIn=900 # 15分钟有效
+            ExpiresIn=86400 # 1天有效
         )
     except Exception as e:
         st.error(f"链接生成失败: {e}")
