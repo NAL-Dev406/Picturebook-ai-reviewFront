@@ -63,6 +63,15 @@ st.title("新艺文社数字化文学平台 - 第二届盲审工作台")
 # 1. 拉取所有稿件 (真实生产环境可以加上 .eq("review_status", "pending"))
 response = supabase_client.table("contest_artworks").select("id, blind_review_code, category").execute()
 
+# --- 诊断日志 ---
+st.write(f"DEBUG: 数据库连接 URL: {os.getenv('NEW_SUPABASE_URL')}")
+st.write(f"DEBUG: 获取到的数据行数: {len(response.data) if response.data else 0}")
+if response.data:
+    st.write("DEBUG: 数据样例:", response.data[0])
+else:
+    st.warning("DEBUG: 数据库返回为空，请检查表名 'contest_artworks' 或数据是否存入了该库。")
+# --------------
+
 if not response.data:
     st.info("当前无稿件数据。")
     st.stop()
