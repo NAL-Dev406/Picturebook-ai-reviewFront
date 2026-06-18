@@ -32,30 +32,14 @@ def get_secure_url(r2_key, r2_client):
         st.error(f"链接生成失败: {e}")
         return None
 
-# --- 3. 绝对严格的路径特征校验 ---
-def is_valid_image_key(key):
-    """防弹级验证：检查是否为真实的 R2 图片路径"""
-    if not key or not isinstance(key, str):
-        return False
-    
-    key = key.strip().lower() # 统一转小写进行特征比对
-    valid_extensions = ('.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff')
-    
-    # 必须以图片后缀结尾，并且必须包含我们设定的存储桶目录特征
-    if key.endswith(valid_extensions) and ("edition_2/" in key or "secure_raw/" in key):
-        return True
-    return False
-
-# --- 4. 高效数据加载与多图清洗 ---
-@st.cache_data(ttl=60) 
+# --- 3. 高效数据加载 (依赖 has_image 字段过滤) ---
 def load_valid_data(_client):
     valid_data = []
     page_size = 1000
     start = 0
     
     while True:
-        # 核心改动：直接在查询时加上 .eq('has_image', True)
-        # 这样数据库连“没图”的数据都不会发给前端，从根本上解决显示全部作品的问题！
+        # 直接利用数据库的 has_image 标志进行拦截
         response = _client.table("contest_artworks").select("*") \
             .eq("has_image", True) \
             .range(start, start + page_size - 1).execute()
@@ -64,7 +48,6 @@ def load_valid_data(_client):
             break
             
         for item in response.data:
-            # 简单提取路径即可，不再需要进行特征过滤
             assets = item.get("assets_data", [])
             valid_image_keys = [page.get("r2_raw_key") for page in assets if isinstance(page, dict) and page.get("r2_raw_key")]
             
@@ -78,7 +61,7 @@ def load_valid_data(_client):
         
     return valid_data, len(valid_data)
 
-# --- 5. 页面主逻辑 ---
+# --- 4. 页面主逻辑 ---
 def main():
     st.set_page_config(page_title="NAL 评审工作台", layout="wide")
     
@@ -99,16 +82,13 @@ def main():
     r2_client, supabase_client = init_connections()
     valid_data, total_fetched = load_valid_data(supabase_client)
     
-    # 侧边栏统计与强制清理
     with st.sidebar:
-        st.success(f"系统共检索: **{total_fetched}** 条记录")
-        st.info(f"含图片可阅览: **{len(valid_data)}** 部作品")
-        if st.button("🔄 强制清理缓存并刷新"):
-            st.cache_data.clear() # 彻底核弹级清理缓存
+        st.info(f"📚 当前可阅览作品: **{len(valid_data)}** 部")
+        if st.button("🔄 刷新最新数据"):
             st.rerun()
     
     if not valid_data:
-        st.warning("当前数据库中暂无符合要求的真实图片作品，请确保上次运行上传脚本时已成功写入 Supabase。")
+        st.warning("当前数据库中暂无符合要求的真实图片作品，请确保上传脚本已成功写入并打上 has_image 标记。")
         st.stop()
     
     # --- UI 交互：级联选择 ---
@@ -138,17 +118,26 @@ def main():
     
     st.divider()
     
-    # --- 多图流式渲染与缩放控制区 ---
+    # --- 多图流式渲染与信息展示区 ---
     if selected_label:
         asset = options[selected_label]
         image_keys = asset.get("parsed_r2_keys", [])
+        synopsis = asset.get("synopsis_or_statement")
         
         st.subheader(f"🎨 视觉原稿区: {selected_label}")
         
-        # 动态缩放滑块，默认宽度 700px 适合竖排绘本
+        # --- 核心新增：作品简介展示面板 ---
+        if synopsis and str(synopsis).strip():
+            with st.expander("📝 查看作品简介 / 创作说明", expanded=True):
+                st.markdown(f"{synopsis}")
+        else:
+            st.info("该作品暂无简介或创作说明。")
+        # ---------------------------------
+        
+        # 动态缩放滑块
         img_width = st.slider("🔍 调整图片显示比例 (拖动缩放)", min_value=300, max_value=2000, value=700, step=50)
         
-        st.info(f"💡 提示：该作品共包含 {len(image_keys)} 页视觉稿。图片采用端到端加密链接，15分钟后自动失效。")
+        st.caption(f"💡 提示：该作品共包含 {len(image_keys)} 页视觉稿。图片采用端到端加密链接，15分钟后自动失效。")
         
         # 居中对齐排版
         col_img1, col_img2, col_img3 = st.columns([1, 6, 1])
