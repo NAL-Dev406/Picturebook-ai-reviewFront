@@ -61,7 +61,7 @@ def get_secure_url(r2_key):
 st.title("新艺文社数字化文学平台 - 第二届盲审工作台")
 
 # 1. 拉取所有稿件 (真实生产环境可以加上 .eq("review_status", "pending"))
-response = supabase_client.table("contest_artworks").select("id, blind_review_code, category").execute()
+response = supabase_client.table("contest_artworks").select("*").execute()
 
 # --- 诊断日志 ---
 st.write(f"DEBUG: 数据库连接 URL: {os.getenv('NEW_SUPABASE_URL')}")
