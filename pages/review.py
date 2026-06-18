@@ -137,7 +137,7 @@ def main():
         # 动态缩放滑块
         img_width = st.slider("🔍 调整图片显示比例 (拖动缩放)", min_value=300, max_value=2000, value=700, step=50)
         
-        st.caption(f"💡 提示：该作品共包含 {len(image_keys)} 页视觉稿。图片采用端到端加密链接，15分钟后自动失效。")
+        st.caption(f"💡 提示：该作品共包含 {len(image_keys)} 页视觉稿。图片采用端到端加密链接，1天后自动失效。")
         
         # 居中对齐排版
         col_img1, col_img2, col_img3 = st.columns([1, 6, 1])
