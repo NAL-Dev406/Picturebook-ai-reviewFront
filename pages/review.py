@@ -50,34 +50,24 @@ def is_valid_image_key(key):
 @st.cache_data(ttl=60) 
 def load_valid_data(_client):
     valid_data = []
-    total_fetched = 0
     page_size = 1000
     start = 0
     
     while True:
-        response = _client.table("contest_artworks").select("*").range(start, start + page_size - 1).execute()
+        # 核心改动：直接在查询时加上 .eq('has_image', True)
+        # 这样数据库连“没图”的数据都不会发给前端，从根本上解决显示全部作品的问题！
+        response = _client.table("contest_artworks").select("*") \
+            .eq("has_image", True) \
+            .range(start, start + page_size - 1).execute()
+            
         if not response.data:
             break
             
-        total_fetched += len(response.data)
-        
         for item in response.data:
-            assets = item.get("assets_data")
-            valid_image_keys = []
+            # 简单提取路径即可，不再需要进行特征过滤
+            assets = item.get("assets_data", [])
+            valid_image_keys = [page.get("r2_raw_key") for page in assets if isinstance(page, dict) and page.get("r2_raw_key")]
             
-            # 无论数据库存的是什么乱七八糟的格式，统一使用严格特征校验
-            if isinstance(assets, list):
-                for page in assets:
-                    if isinstance(page, dict):
-                        raw_key = page.get("r2_raw_key")
-                        if is_valid_image_key(raw_key):
-                            valid_image_keys.append(str(raw_key).strip())
-            elif isinstance(assets, dict):
-                raw_key = assets.get("r2_raw_key")
-                if is_valid_image_key(raw_key):
-                    valid_image_keys.append(str(raw_key).strip())
-            
-            # 只有通过了极严苛校验，确实拥有真实图片路径的作品，才加入展示列表
             if valid_image_keys:
                 item['parsed_r2_keys'] = valid_image_keys  
                 valid_data.append(item)
@@ -86,7 +76,7 @@ def load_valid_data(_client):
             break
         start += page_size
         
-    return valid_data, total_fetched
+    return valid_data, len(valid_data)
 
 # --- 5. 页面主逻辑 ---
 def main():
