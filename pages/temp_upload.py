@@ -77,41 +77,98 @@ def main():
                 st.balloons()
                 st.success(f"🎉 批量传输完成！成功上传 {success_count} 个文件。")
 
-    # === 2. 后台下载区 ===
+   # === 2. 后台下载与管理区 ===
     with tab_download:
-        pwd = st.text_input("请输入管理员密码以查看下载列表", type="password")
+        pwd = st.text_input("请输入管理员密码以查看和管理文件", type="password")
         if pwd == os.getenv("REVIEWER_PASSWORD"):
             st.divider()
-            if st.button("🔄 刷新云端文件列表"):
-                st.rerun()
-                
+            
+            # --- 顶层操作区 ---
+            col_action1, col_action2 = st.columns([1, 4])
+            with col_action1:
+                if st.button("🔄 刷新云端列表"):
+                    st.rerun()
+            
+            with col_action2:
+                # 危险操作区：一键清空所有文件，增加折叠与勾选二次确认
+                with st.expander("🚨 危险操作区：清空所有文件"):
+                    st.warning("此操作将永久删除 R2 存储桶中该目录下的所有纯文本文件，且不可恢复！建议在执行本地一键下载脚本后再进行此操作。")
+                    confirm_delete_all = st.checkbox("我已确认所有文件均已安全备份，同意清空云端")
+                    
+                    if confirm_delete_all and st.button("🗑️ 确认全部清空", type="primary"):
+                        with st.spinner("正在批量删除文件..."):
+                            try:
+                                # 获取所有文件并构建删除列表
+                                response = r2_client.list_objects_v2(Bucket=bucket_name, Prefix="temp_text_works/")
+                                files_to_delete = response.get('Contents', [])
+                                
+                                if files_to_delete:
+                                    # 过滤掉作为目录本身的标识符，仅保留实体文件
+                                    delete_keys = [{'Key': obj['Key']} for obj in files_to_delete if obj['Key'] != "temp_text_works/"]
+                                    
+                                    if delete_keys:
+                                        r2_client.delete_objects(
+                                            Bucket=bucket_name,
+                                            Delete={'Objects': delete_keys}
+                                        )
+                                    st.success("✅ 所有临时文件已成功清空！")
+                                    time.sleep(1) # 短暂亦可，让用户看到成功提示后刷新
+                                    st.rerun()
+                                else:
+                                    st.info("云端本来就是空的。")
+                            except Exception as e:
+                                st.error(f"清空失败: {e}")
+
+            st.markdown("### 📂 当前云端待处理作品")
             try:
-                # 直接从 R2 获取文件列表
+                # 从 R2 获取文件列表
                 response = r2_client.list_objects_v2(Bucket=bucket_name, Prefix="temp_text_works/")
                 files = response.get('Contents', [])
                 
-                if not files:
-                    st.info("当前云端暂无上传的文件。")
+                # 过滤掉目录本身
+                valid_files = [f for f in files if f['Key'] != "temp_text_works/"]
+                
+                if not valid_files:
+                    st.info("🎉 当前云端暂无待处理的作品文件。")
                 else:
-                    st.write(f"共找到 **{len(files)}** 个文件：")
-                    for file in files:
+                    st.write(f"共找到 **{len(valid_files)}** 个文件：")
+                    
+                    # 遍历渲染文件列表和单独删除按钮
+                    for file in valid_files:
                         file_key = file['Key']
-                        # 略过文件夹本身
-                        if file_key == "temp_text_works/": 
-                            continue
-                            
+                        # 剥离前缀，只显示文件名
+                        display_name = file_key.replace("temp_text_works/", "")
+                        # 换算文件大小为 MB
+                        file_size_mb = file['Size'] / (1024 * 1024)
+                        
                         # 生成 1 小时有效的下载链接
                         download_url = r2_client.generate_presigned_url(
                             'get_object',
                             Params={'Bucket': bucket_name, 'Key': file_key},
                             ExpiresIn=3600 
                         )
-                        # 剥离前缀，只显示文件名
-                        display_name = file_key.replace("temp_text_works/", "")
-                        st.markdown(f"- [{display_name}]({download_url})")
+                        
+                        # 使用 columns 实现列表与按钮的精美对齐
+                        with st.container():
+                            col_file, col_btn = st.columns([5, 1])
+                            with col_file:
+                                st.markdown(f"📄 [{display_name}]({download_url})  `({file_size_mb:.2f} MB)`")
+                            
+                            with col_btn:
+                                # 为每个按钮分配独一无二的 key，防止 Streamlit 渲染冲突
+                                if st.button("🗑️ 删除", key=f"del_{file_key}", use_container_width=True):
+                                    try:
+                                        r2_client.delete_object(Bucket=bucket_name, Key=file_key)
+                                        st.toast(f"已成功删除 {display_name}")
+                                        time.sleep(0.5)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"删除 {display_name} 失败: {e}")
+                            
+                            st.divider()
                         
             except Exception as e:
-                st.error(f"读取文件列表失败: {e}")
+                st.error(f"读取云端文件列表失败: {e}")
 
 if __name__ == "__main__":
     main()
