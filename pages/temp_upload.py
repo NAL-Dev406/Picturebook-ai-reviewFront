@@ -28,7 +28,8 @@ def main():
     
   # === 1. 选手上传区 ===
     with tab_upload:
-        st.info("单次最多允许上传 50 个文件。为了保证服务器稳定，【单批次总容量】请勿超过 100MB。")
+        # 文案也去掉了 100MB 的提示，用户体验更清爽
+        st.info("单次最多允许上传 50 个文件，单个文件大小请勿超过 10MB。")
         
         uploaded_files = st.file_uploader(
             "拖拽或点击选择文件", 
@@ -53,11 +54,12 @@ def main():
                     st.write(f"- {name}")
                 st.stop() 
 
-            # 🌟 3. 新增：校验单批次总容量限制 (安全水位：100MB)
-            MAX_TOTAL_SIZE = 100 * 1024 * 1024
+            # 🌟 3. 内存熔断保护上限提升至 500MB (完美匹配 50个*10MB 的理论极限)
+            MAX_TOTAL_SIZE = 500 * 1024 * 1024
             total_size = sum(f.size for f in uploaded_files)
             if total_size > MAX_TOTAL_SIZE:
-                st.error(f"⚠️ 内存熔断保护：当前这批文件总大小为 {total_size / (1024*1024):.1f} MB，超出了服务器的安全上限 (100 MB)。请减少本次上传的文件数量，分多次上传。")
+                # 理论上几乎触发不到这条，但保留作为终极保险
+                st.error(f"⚠️ 内存熔断保护：总大小 ({total_size / (1024*1024):.1f} MB) 超出 500MB 极值，请减少文件数量。")
                 st.stop()
             
             # --- 校验通过，显示上传按钮 ---
@@ -82,8 +84,7 @@ def main():
                 
                 status_text.empty()
                 st.balloons()
-                st.success(f"🎉 批量传输完成！成功上传 {success_count} 个文件。")
-                
+                st.success(f"🎉 批量传输完成！成功上传 {success_count} 个文件。")                
    # === 2. 后台下载与管理区 ===
     with tab_download:
         pwd = st.text_input("请输入管理员密码以查看和管理文件", type="password")
